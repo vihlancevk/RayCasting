@@ -4,15 +4,14 @@
 #include "../Vectors/CoordinateSystem.hpp"
 #include "../Vectors/Vector.hpp"
 
-void RotateVector(Vector& vector, float angle);
-void RayCasting(sf::VertexArray& pixels, CoordinateSystem& coordinateSystem, Vector& sphere, Vector& light);
-
 const unsigned SCREEN_WEIGHT = 1920;
 const unsigned SCREEN_HIGHT = 1080;
 const char *SCREEN_TITLE = "RayCasting";
 const unsigned FRAME_RATE_LIMIT = 60;
 
 const float PI = 3.14159f;
+
+void RayCasting(sf::VertexArray& pixels, CoordinateSystem& coordinateSystem, Vector& sphere, Vector& light);
 
 int main()
 {
@@ -21,11 +20,11 @@ int main()
 
 	sf::Event event;
 
-    CoordinateSystem coordinateSystem = CoordinateSystem(800, 800, 400,
-                                                         550, 100, 0,
-                                                         -10, 10, -10, 10, 0, 10);
-    Vector sphere = Vector(5, 0, 0);
-    Vector light  = Vector(1, 5, 15);
+    CoordinateSystem coordinateSystem = CoordinateSystem(800, 800,
+                                                         550, 100,
+                                                         -15, 15, -15, 15);
+    Vector sphere = Vector(10, 0, 0);
+    Vector light  = Vector(7, 8, 30);
 
     sf::VertexArray pixels(sf::Points, (size_t) coordinateSystem.weight_ * (size_t) coordinateSystem.hight_);
 
@@ -63,21 +62,8 @@ int main()
 	return 0;
 }
 
-void RotateVector(Vector& vector, float angle) {
-    float x = vector.x_;
-    float y = vector.y_;
-    float cosF = cosf(angle);
-    float sinF = sinf(angle);
-
-    vector.x_ = x * cosF - y * sinF;
-    vector.y_ = x * sinF + y * cosF;
-
-    vector.len2_ = vector.CalculateLen2Vector();
-}
-
-
 void RayCasting(sf::VertexArray& pixels, CoordinateSystem& coordinateSystem, Vector& sphere, Vector& light) {
-    RotateVector(light, PI / 400);
+    light.RotateVector(PI / 400);
 
     float A = 0.2f;
     float D = 0.6f;
@@ -109,10 +95,10 @@ void RayCasting(sf::VertexArray& pixels, CoordinateSystem& coordinateSystem, Vec
 
                 if (cosF > 0) {
                     Vector lightAfterReflection = light;
-                    RotateVector(lightAfterReflection, 2 * acosf(cosF));
+                    lightAfterReflection.RotateVector(2 * acosf(cosF));
 
                     Vector normalToLight = light;
-                    RotateVector(normalToLight, PI / 2);
+                    normalToLight.RotateVector(PI / 2);
 
                     cosA = (lightAfterReflection * normalToLight) /
                            (sqrtf(lightAfterReflection.len2_) * sqrtf(normalToLight.len2_));
