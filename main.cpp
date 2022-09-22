@@ -16,7 +16,9 @@ int main()
 
 	sf::Event event;
 
-    CoordinateSystem coordinateSystem = CoordinateSystem(800, 800, 550, 100, -10, 10, -10, 10);
+    CoordinateSystem coordinateSystem = CoordinateSystem(800, 800, 400,
+                                                         550, 100, 0,
+                                                         -10, 10, -10, 10, 0, 10);
     size_t coordinateSystemCentreX = (size_t) (coordinateSystem.xLeftUp_ + coordinateSystem.weight_ / 2);
     size_t coordinateSystemCentreY = (size_t) (coordinateSystem.yLeftUp_ + coordinateSystem.hight_  / 2);
 
@@ -30,7 +32,7 @@ int main()
                                                           fxMax, fyMin);
     size_t xMax = (size_t) fxMax, yMax = (size_t) fyMin;
 
-    Vector radius = Vector(5, 5);
+    Vector radius = Vector(5, 0, 0);
 
     float fradiusX = 0, fradiusY = 0;
     coordinateSystem.ConvertLocalToGlobalVectorCoordinate(radius.x_, radius.y_,
@@ -41,6 +43,8 @@ int main()
                         (radiusY - coordinateSystemCentreY) * (radiusY - coordinateSystemCentreY);
 
     // std::cout << xMin << " " << xMax << " " << yMin << " " << yMax << "\n" << radiusLen2 << "\n";
+
+    Vector light = Vector(1000, 1000, 1000);
 
     sf::VertexArray pixels(sf::Points, (size_t) coordinateSystem.weight_ * (size_t) coordinateSystem.hight_);
 
@@ -64,6 +68,9 @@ int main()
             if (event.type == sf::Event::MouseButtonPressed) {
                 if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
 
+                    float A = 0.1f;
+                    float D = 0.9f;
+
                     for (size_t i = yMin; i < yMax; i++) {
                         for (size_t j = xMin; j < xMax; j++) {
                             size_t pointLen2 = (i - coordinateSystemCentreY) * (i - coordinateSystemCentreY) +
@@ -73,7 +80,17 @@ int main()
                             if (pointLen2 >= radiusLen2) {
                                 pixels[(i - yMin) * (size_t) coordinateSystem.weight_ + (j - xMin)].color = sf::Color::Black; 
                             } else {
-                                pixels[(i - yMin) * (size_t) coordinateSystem.weight_ + (j - xMin)].color = sf::Color::White;
+                                size_t z = sqrt(radiusLen2 - (j - coordinateSystemCentreX)*(j - coordinateSystemCentreX)
+                                - (i - coordinateSystemCentreY)*(i - coordinateSystemCentreY));
+                                Vector point = Vector(j, i, z);
+                                Vector pointToLight = light - point;
+                                float cosF = (point * pointToLight) / (sqrt(point.len2_) * sqrt(pointToLight.len2_));
+                                if (cosF < 0) { cosF = 0; }
+                                // std::cout << point.x_ << " " << point.y_ << " " << point.z_ << point.len2_ << "\n";
+                                // std::cout << pointToLight.x_ << " " << pointToLight.y_ << " " << pointToLight.z_ << pointToLight.len2_ << "\n";
+                                // std::cout << (point * pointToLight) << " " << sqrt(point.len2_) << " " << sqrt(pointToLight.len2_) << " " << cosF << "\n";
+                                sf::Color color((A + D * cosF) * 255, (A + D * cosF) * 255, (A + D * cosF) * 255);
+                                pixels[(i - yMin) * (size_t) coordinateSystem.weight_ + (j - xMin)].color = color;
                             }
                         }
                     }
