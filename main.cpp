@@ -4,10 +4,15 @@
 #include "../Vectors/CoordinateSystem.hpp"
 #include "../Vectors/Vector.hpp"
 
+void RotateVector(Vector& vector, float angle);
+void RayCasting(sf::VertexArray& pixels, CoordinateSystem& coordinateSystem, Vector& sphere, Vector& light);
+
 const unsigned SCREEN_WEIGHT = 1920;
 const unsigned SCREEN_HIGHT = 1080;
 const char *SCREEN_TITLE = "RayCasting";
 const unsigned FRAME_RATE_LIMIT = 60;
+
+const float PI = 3.14159f;
 
 int main()
 {
@@ -19,32 +24,8 @@ int main()
     CoordinateSystem coordinateSystem = CoordinateSystem(800, 800, 400,
                                                          550, 100, 0,
                                                          -10, 10, -10, 10, 0, 10);
-    size_t coordinateSystemCentreX = (size_t) (coordinateSystem.xLeftUp_ + coordinateSystem.weight_ / 2);
-    size_t coordinateSystemCentreY = (size_t) (coordinateSystem.yLeftUp_ + coordinateSystem.hight_  / 2);
-
-    float fxMin = 0, fyMax = 0;
-    coordinateSystem.ConvertLocalToGlobalVectorCoordinate(coordinateSystem.xMin_, coordinateSystem.yMax_,
-                                                          fxMin, fyMax);
-    size_t xMin = (size_t) fxMin, yMin = (size_t) fyMax;
-
-    float fxMax = 0, fyMin = 0;
-    coordinateSystem.ConvertLocalToGlobalVectorCoordinate(coordinateSystem.xMax_, coordinateSystem.yMin_,
-                                                          fxMax, fyMin);
-    size_t xMax = (size_t) fxMax, yMax = (size_t) fyMin;
-
-    Vector radius = Vector(5, 0, 0);
-
-    float fradiusX = 0, fradiusY = 0;
-    coordinateSystem.ConvertLocalToGlobalVectorCoordinate(radius.x_, radius.y_,
-                                                          fradiusX, fradiusY);
-    size_t radiusX = (size_t) fradiusX, radiusY = (size_t) fradiusY;
-
-    size_t radiusLen2 = (radiusX - coordinateSystemCentreX) * (radiusX - coordinateSystemCentreX) +
-                        (radiusY - coordinateSystemCentreY) * (radiusY - coordinateSystemCentreY);
-
-    // std::cout << xMin << " " << xMax << " " << yMin << " " << yMax << "\n" << radiusLen2 << "\n";
-
-    Vector light = Vector(1000, 1000, 1000);
+    Vector sphere = Vector(5, 0, 0);
+    Vector light  = Vector(1, 5, 15);
 
     sf::VertexArray pixels(sf::Points, (size_t) coordinateSystem.weight_ * (size_t) coordinateSystem.hight_);
 
@@ -67,39 +48,12 @@ int main()
 
             if (event.type == sf::Event::MouseButtonPressed) {
                 if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
-
-                    float A = 0.1f;
-                    float D = 0.9f;
-
-                    for (size_t i = yMin; i < yMax; i++) {
-                        for (size_t j = xMin; j < xMax; j++) {
-                            size_t pointLen2 = (i - coordinateSystemCentreY) * (i - coordinateSystemCentreY) +
-                                               (j - coordinateSystemCentreX) * (j - coordinateSystemCentreX);
-                            pixels[(i - yMin) * (size_t) coordinateSystem.weight_ + (j - xMin)].position =
-                                sf::Vector2f((float) j, (float) i);
-                            if (pointLen2 >= radiusLen2) {
-                                pixels[(i - yMin) * (size_t) coordinateSystem.weight_ + (j - xMin)].color = sf::Color::Black; 
-                            } else {
-                                size_t z = sqrt(radiusLen2 - (j - coordinateSystemCentreX)*(j - coordinateSystemCentreX)
-                                - (i - coordinateSystemCentreY)*(i - coordinateSystemCentreY));
-                                Vector point = Vector(j, i, z);
-                                Vector pointToLight = light - point;
-                                float cosF = (point * pointToLight) / (sqrt(point.len2_) * sqrt(pointToLight.len2_));
-                                if (cosF < 0) { cosF = 0; }
-                                // std::cout << point.x_ << " " << point.y_ << " " << point.z_ << point.len2_ << "\n";
-                                // std::cout << pointToLight.x_ << " " << pointToLight.y_ << " " << pointToLight.z_ << pointToLight.len2_ << "\n";
-                                // std::cout << (point * pointToLight) << " " << sqrt(point.len2_) << " " << sqrt(pointToLight.len2_) << " " << cosF << "\n";
-                                sf::Color color((A + D * cosF) * 255, (A + D * cosF) * 255, (A + D * cosF) * 255);
-                                pixels[(i - yMin) * (size_t) coordinateSystem.weight_ + (j - xMin)].color = color;
-                            }
-                        }
-                    }
-
+                    continue;
                 }
             }
 		}
 
-        // std::cout << pixels[0].position.x << " " << pixels[0].position.y << "\n";
+        RayCasting(pixels, coordinateSystem, sphere, light);
 
         window.draw(pixels);
         window.display();
@@ -107,4 +61,70 @@ int main()
 	}
 
 	return 0;
+}
+
+void RotateVector(Vector& vector, float angle) {
+    float x = vector.x_;
+    float y = vector.y_;
+    float cosF = cosf(angle);
+    float sinF = sinf(angle);
+
+    vector.x_ = x * cosF - y * sinF;
+    vector.y_ = x * sinF + y * cosF;
+
+    vector.len2_ = vector.CalculateLen2Vector();
+}
+
+
+void RayCasting(sf::VertexArray& pixels, CoordinateSystem& coordinateSystem, Vector& sphere, Vector& light) {
+    RotateVector(light, PI / 400);
+
+    float A = 0.2f;
+    float D = 0.6f;
+    float S = 0.2f;
+    int n = 18;
+
+    float coordinatesInPixelX = (coordinateSystem.xMax_ - coordinateSystem.xMin_) / coordinateSystem.weight_;
+    float coordinatesInPixelY = (coordinateSystem.yMax_ - coordinateSystem.yMin_) / coordinateSystem.hight_;
+
+    for (size_t i = 0; i < (size_t) coordinateSystem.hight_; i ++) {
+        for (size_t j = 0; j < (size_t) coordinateSystem.weight_; j ++) {
+
+            float xLocal = coordinateSystem.xMin_ + (float) j * coordinatesInPixelX;
+            float yLocal = coordinateSystem.yMin_ + (float) i * coordinatesInPixelY;
+
+            float xGlobal = 0, yGlobal = 0;
+            coordinateSystem.ConvertLocalToGlobalVectorCoordinate(xLocal, yLocal, xGlobal, yGlobal);
+            
+            pixels[i * (size_t) coordinateSystem.weight_ + j].position = sf::Vector2f(xGlobal, yGlobal);
+            
+            if (xLocal*xLocal + yLocal*yLocal >= sphere.len2_) {
+                pixels[i * (size_t) coordinateSystem.weight_ + j].color = sf::Color::Black; 
+            } else {
+                Vector point = Vector(xLocal, yLocal, sqrtf(sphere.len2_ - xLocal*xLocal - yLocal*yLocal));
+                Vector pointToLight = light - point;
+
+                float cosF = (point * pointToLight) / (sqrtf(point.len2_) * sqrtf(pointToLight.len2_));
+                float cosA = 0;
+
+                if (cosF > 0) {
+                    Vector lightAfterReflection = light;
+                    RotateVector(lightAfterReflection, 2 * acosf(cosF));
+
+                    Vector normalToLight = light;
+                    RotateVector(normalToLight, PI / 2);
+
+                    cosA = (lightAfterReflection * normalToLight) /
+                           (sqrtf(lightAfterReflection.len2_) * sqrtf(normalToLight.len2_));
+                } else {
+                    cosF = 0;
+                }
+
+                sf::Color color((sf::Uint8) ((A + D * cosF + S * pow(cosA, n)) * 255),
+                                (sf::Uint8) ((A + D * cosF + S * pow(cosA, n)) * 255),
+                                (sf::Uint8) ((A + D * cosF + S * pow(cosA, n)) * 255));
+                pixels[i * (size_t) coordinateSystem.weight_ + j].color = color;
+            }
+        }
+    }
 }
