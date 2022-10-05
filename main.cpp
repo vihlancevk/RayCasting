@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cmath>
 #include <SFML/Graphics.hpp>
-#include "../Vectors/CoordinateSystem.hpp"
-#include "../Vectors/Vector.hpp"
+#include "../MathVector/CoordinateSystem.hpp"
+#include "../MathVector/MathVector.hpp"
 
 const unsigned SCREEN_WEIGHT = 1920;
 const unsigned SCREEN_HIGHT = 1080;
@@ -22,11 +22,11 @@ int main()
 
     CoordinateSystem coordinateSystem = CoordinateSystem(800, 800,
                                                          550, 100,
-                                                         -15, 15, -15, 15);
-    Vector sphere = Vector(10, 0, 0);
-    Vector light  = Vector(7, 8, 30);
+                                                         -20, 20, -20, 20);
+    Vector sphere = Vector(20, 0, 0);
+    Vector light  = Vector(7, 8, 70);
 
-    sf::VertexArray pixels(sf::Points, (size_t) coordinateSystem.weight_ * (size_t) coordinateSystem.hight_);
+    sf::VertexArray pixels(sf::Points, (size_t) SCREEN_WEIGHT * (size_t) SCREEN_HIGHT);
 
 	while (window.isOpen()) {
 		while (window.pollEvent(event)) {
@@ -63,53 +63,55 @@ int main()
 }
 
 void RayCasting(sf::VertexArray& pixels, CoordinateSystem& coordinateSystem, Vector& sphere, Vector& light) {
-    light.RotateVector(PI / 400);
+    light.rotateVector(PI / 400);
 
-    float A = 0.2f;
-    float D = 0.6f;
-    float S = 0.2f;
+    float A = 0.1f;
+    float D = 0.5f;
+    float S = 0.4f;
     int n = 18;
 
-    float coordinatesInPixelX = (coordinateSystem.xMax_ - coordinateSystem.xMin_) / coordinateSystem.weight_;
-    float coordinatesInPixelY = (coordinateSystem.yMax_ - coordinateSystem.yMin_) / coordinateSystem.hight_;
+    float PixelsInCoordinateX = coordinateSystem.weight_/ (coordinateSystem.xMax_ - coordinateSystem.xMin_);
+    float PixelsInCoordinateY = coordinateSystem.hight_ / (coordinateSystem.yMax_ - coordinateSystem.yMin_);
 
-    for (size_t i = 0; i < (size_t) coordinateSystem.hight_; i ++) {
-        for (size_t j = 0; j < (size_t) coordinateSystem.weight_; j ++) {
+    float radiusSphere = powf(sphere.getVectorLen(), 2);
 
-            float xLocal = coordinateSystem.xMin_ + (float) j * coordinatesInPixelX;
-            float yLocal = coordinateSystem.yMin_ + (float) i * coordinatesInPixelY;
+    for (size_t i = 0; i < (size_t) SCREEN_HIGHT; i ++) {
+        for (size_t j = 0; j < (size_t) SCREEN_WEIGHT; j ++) {
 
-            float xGlobal = 0, yGlobal = 0;
-            coordinateSystem.ConvertLocalToGlobalVectorCoordinate(xLocal, yLocal, xGlobal, yGlobal);
+            float xLocal = ((float) j - (coordinateSystem.xLeftUp_ + coordinateSystem.weight_ / 2)) / PixelsInCoordinateX;
+            float yLocal = ((float) i - (coordinateSystem.yLeftUp_ + coordinateSystem.hight_  / 2)) / PixelsInCoordinateY;
+            float zLocal2 = 0;
             
-            pixels[i * (size_t) coordinateSystem.weight_ + j].position = sf::Vector2f(xGlobal, yGlobal);
+            pixels[i * (size_t) SCREEN_WEIGHT + j].position = sf::Vector2f((float) j, (float) i);
             
-            if (xLocal*xLocal + yLocal*yLocal >= sphere.len2_) {
-                pixels[i * (size_t) coordinateSystem.weight_ + j].color = sf::Color::Black; 
+            zLocal2 = radiusSphere - powf(xLocal, 2) - powf(yLocal, 2);
+            if (zLocal2 <= 0) {
+                pixels[i * (size_t) SCREEN_WEIGHT + j].color = sf::Color::Black; 
             } else {
-                Vector point = Vector(xLocal, yLocal, sqrtf(sphere.len2_ - xLocal*xLocal - yLocal*yLocal));
-                Vector pointToLight = light - point;
+                Vector normal = Vector(xLocal, yLocal, sqrtf(zLocal2));
+                Vector normalLight = light - normal;
 
-                float cosF = (point * pointToLight) / (sqrtf(point.len2_) * sqrtf(pointToLight.len2_));
+                normal.normalizeVector();
+                normalLight.normalizeVector();
+
+                float cosF = normal * normalLight;
                 float cosA = 0;
 
                 if (cosF > 0) {
-                    Vector lightAfterReflection = light;
-                    lightAfterReflection.RotateVector(2 * acosf(cosF));
+                    Vector lightAfterReflection = 2 * (normal * normalLight) * normal - normalLight;
+                    lightAfterReflection.normalizeVector();
 
-                    Vector normalToLight = light;
-                    normalToLight.RotateVector(PI / 2);
+                    Vector perpendicularToNormal = normal;
+                    perpendicularToNormal.rotateVector(PI / 2);
 
-                    cosA = (lightAfterReflection * normalToLight) /
-                           (sqrtf(lightAfterReflection.len2_) * sqrtf(normalToLight.len2_));
+                    cosA = lightAfterReflection * perpendicularToNormal;
                 } else {
                     cosF = 0;
                 }
 
-                sf::Color color((sf::Uint8) ((A + D * cosF + S * pow(cosA, n)) * 255),
-                                (sf::Uint8) ((A + D * cosF + S * pow(cosA, n)) * 255),
-                                (sf::Uint8) ((A + D * cosF + S * pow(cosA, n)) * 255));
-                pixels[i * (size_t) coordinateSystem.weight_ + j].color = color;
+                sf::Uint8 componentColor = (sf::Uint8) ((A + D * cosF + S * pow(cosA, n)) * 255);
+                sf::Color color(componentColor, componentColor, componentColor);
+                pixels[i * (size_t) SCREEN_WEIGHT + j].color = color;
             }
         }
     }
